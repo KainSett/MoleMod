@@ -1,0 +1,15 @@
+Buffs: {
+	MolePetBuff: {
+		DisplayName: Mole Pet Buff
+		Description: Mods.MoleMod.Buffs.MolePetBuff.Description
+	}
+}
+
+Items: {
+	OldMiningHat: {
+		DisplayName: Old Mining Hat
+		Tooltip: ""
+	}
+}
+
+Projectiles.MolePet.DisplayName: Mole Pet
