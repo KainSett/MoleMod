@@ -98,10 +98,13 @@ namespace MoleMod.Content
                 }
             }
 
-            if (!Main.tile[(int)(Projectile.Center.X / 16), (int)((Projectile.position.Y + Projectile.height) / 16)].HasTile)
+            var top = Projectile.Center - new Vector2(0, Projectile.height / 2);
+            var bottom = Projectile.Center + new Vector2(0, Projectile.height / 2);
+
+            if (WorldGen.SolidOrSlopedTile(top.ToTileCoordinates().X, top.ToTileCoordinates().Y))
                 CurrentAnimation = Animation.Burrowing;
 
-            else if (Main.tile[(int)(Projectile.Center.X / 16), (int)(Projectile.position.Y / 16)].HasTile)
+            else if (Main.tile[bottom.ToTileCoordinates()].HasTile)
             {
                 if (CurrentAnimation != Animation.Stationary && Projectile.frame >= 2)
                     CurrentAnimation = Animation.Burrowing;
@@ -112,13 +115,14 @@ namespace MoleMod.Content
             else if (Projectile.Center.DistanceSQ(owner.Center) < 300 * 300 && CurrentAnimation == Animation.Burrowing)
                 CurrentAnimation = Animation.UnHiding;
 
-            else if (CurrentAnimation == Animation.Stationary)
+            else if (CurrentAnimation == Animation.Stationary && Projectile.Center.DistanceSQ(owner.Center) > 300 * 300)
                 CurrentAnimation = Animation.Hiding;
 
             switch (CurrentAnimation)
             {
                 case Animation.Burrowing:
-                    Projectile.velocity = Projectile.Center.DirectionTo(owner.Center) * 5;
+                    var rot = Projectile.Center.X > owner.Center.X ? -MathHelper.PiOver4 : MathHelper.PiOver4;
+                    Projectile.velocity = Projectile.Center.DirectionTo(owner.Center).RotatedBy(rot) * 5;
                     Projectile.rotation = Projectile.velocity.ToRotation() + MathHelper.PiOver2;
                     break;
 
