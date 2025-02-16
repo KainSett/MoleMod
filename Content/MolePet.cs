@@ -1,6 +1,9 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
+using System.Linq;
 using Terraria;
+using Terraria.DataStructures;
 using Terraria.ID;
 using Terraria.ModLoader;
 
@@ -16,7 +19,10 @@ namespace MoleMod.Content
                 .WithOffset(-10, -20f)
                 .WithSpriteDirection(-1)
                 .WithCode(DelegateMethods.CharacterPreview.Float);
+            ProjectileID.Sets.TrailCacheLength[Projectile.type] = 10;
+            ProjectileID.Sets.TrailingMode[Projectile.type] = 0;
         }
+        public static List<Point> blockBlacklist = [new Point(0, 0)];
         public override void SetDefaults()
         {
             Projectile.width = 56;
@@ -26,6 +32,7 @@ namespace MoleMod.Content
             Projectile.penetrate = -1;
             Projectile.tileCollide = false;
             Projectile.velocity = new Vector2(0, 0);
+            Target = (true, Main.player[Projectile.owner].Center);
         }
         public enum Animation
         {
@@ -44,17 +51,20 @@ namespace MoleMod.Content
             get => Projectile.ai[2];
             set => Projectile.ai[2] = value;
         }
+        public (bool, Vector2) Target;
         public override void AI()
         {
 
             var owner = Main.player[Projectile.owner];
 
-            if ((owner == null || !owner.active || !owner.HasBuff(ModContent.BuffType<MolePetBuff>()))) { 
+            if ((owner == null || !owner.active || !owner.HasBuff(ModContent.BuffType<MolePetBuff>()))) {
+                blockBlacklist.Add(Target.Item2.ToTileCoordinates());
                 Projectile.Kill();
                 return;
             }
 
-            Projectile.timeLeft++;
+            if (Projectile.oldPos.Last().DistanceSQ(Projectile.position) > 30 * 30 || CurrentAnimation != Animation.Burrowing || Projectile.Center.DistanceSQ(owner.Center) < 1500 * 1500)
+                Projectile.timeLeft = 120;
 
 
             Projectile.frameCounter++;
@@ -69,55 +79,116 @@ namespace MoleMod.Content
 
                         else Projectile.frame++;
 
+                        Projectile.spriteDirection = 1;
                         break;
 
                     case Animation.UnHiding:
-                        if (Projectile.frame == 0)
+                        if (Projectile.frame <= 0)
                             CurrentAnimation = Animation.Stationary;
+
+                        else if (Projectile.frame > 2)
+                            Projectile.frame = 2;
 
                         else Projectile.frame--;
 
+                        Projectile.spriteDirection = 1;
                         break;
 
                     case Animation.Burrowing:
                         if (Projectile.frame == 7)
-                            Projectile.spriteDirection = 1;
-
-                        else if (Projectile.frame == 3)
                             Projectile.spriteDirection = 0;
 
+                        else if (Projectile.frame == 3)
+                            Projectile.spriteDirection = 1;
 
-                        if (Projectile.spriteDirection != 1)
+                        if (Projectile.spriteDirection == 1)
                             Projectile.frame++;
-
-
 
                         else Projectile.frame--;
 
-
                         break;
 
-                    default: break;
+                    default:
+                        Projectile.frame = 0;
+                        Projectile.spriteDirection = 1;
+                        break;
                 }
             }
 
             var top = Projectile.Center + new Vector2(0, Projectile.height / 4);
-            var bottom = Projectile.Center + new Vector2(0, Projectile.height / 2);
+            var bottom = Projectile.Center + new Vector2(0, Projectile.height / 2f);
 
-            if (Projectile.Center.DistanceSQ(owner.Center) < 300 * 300 && CurrentAnimation == Animation.Burrowing)
-                CurrentAnimation = Animation.UnHiding;
 
-            else if (CurrentAnimation == Animation.Stationary && Projectile.Center.DistanceSQ(owner.Center) > 300 * 300)
+            if (CurrentAnimation == Animation.Stationary && Projectile.Center.DistanceSQ(owner.Center) > 500 * 500)
+            {
+                Target.Item1 = true;
+                Target.Item2 = owner.Center;
                 CurrentAnimation = Animation.Hiding;
+                Projectile.NewProjectile(Projectile.GetSource_FromAI(), Projectile.Center - new Vector2(0, Projectile.height / 2), -Vector2.UnitY * 5, ModContent.ProjectileType<OldMiningHelmet>(), 0, 0, Projectile.owner);
+            }
 
-            if (WorldGen.SolidOrSlopedTile(top.ToTileCoordinates().X, top.ToTileCoordinates().Y) || !Main.tile[bottom.ToTileCoordinates()].HasTile)
+            if (WorldGen.SolidOrSlopedTile(top.ToTileCoordinates().X, top.ToTileCoordinates().Y) || !WorldGen.SolidOrSlopedTile(bottom.ToTileCoordinates().X, bottom.ToTileCoordinates().Y))
                 CurrentAnimation = Animation.Burrowing;
+
+            else if (Projectile.Center.DistanceSQ(Target.Item2) < 500 * 500 && CurrentAnimation == Animation.Burrowing)
+            {
+                CurrentAnimation = Animation.UnHiding;
+                Target = (true, owner.Center);
+            }
+
+
+            if (Projectile.Center.DistanceSQ(owner.Center) < 60 * 60 && CurrentAnimation == Animation.Burrowing)
+            {
+                for (int i = 0; i < Main.worldSurface; i++)
+                {
+                    if (!Target.Item1)
+                        break;
+
+                    for (int x = 0; x < 200; x++)
+                    {
+                        var blockRight = (owner.Center).ToTileCoordinates() + new Point(x, i - 10);
+
+                        if (WorldGen.SolidOrSlopedTile(blockRight.X, blockRight.Y) && !blockBlacklist.Contains(blockRight))
+                        {
+                            Target.Item2 = blockRight.ToWorldCoordinates();
+                            Target.Item1 = false;
+                            break;
+                        }
+
+                        var blockLeft = (owner.Center).ToTileCoordinates() + new Point(-x, i - 10);
+
+                        if (WorldGen.SolidOrSlopedTile(blockLeft.X, blockLeft.Y) && !blockBlacklist.Contains(blockLeft))
+                        {
+                            Target.Item2 = blockLeft.ToWorldCoordinates();
+                            Target.Item1 = false;
+                            break;
+                        }
+                    }
+                }
+            }
+            else if (Projectile.Center.DistanceSQ(owner.Center) > 500 * 500)
+            {
+                Target = (true, owner.Center);
+            }
+
 
             switch (CurrentAnimation)
             {
                 case Animation.Burrowing:
-                    var rot = Projectile.Center.X > owner.Center.X ? -MathHelper.PiOver4 : MathHelper.PiOver4;
-                    Projectile.velocity = Projectile.Center.DirectionTo(owner.Center).RotatedBy(rot).SafeNormalize(Vector2.Zero) * 5;
+                    for (int y = Projectile.height / 8; y > 0; y--)
+                    {
+                        for (int x = Projectile.width / 8; x > 0; x--)
+                        {
+                            var block = (Projectile.position).ToTileCoordinates() + new Point(x, y);
+                            if (WorldGen.SolidOrSlopedTile(block.X, block.Y))
+                            {
+                                Dust.NewDust(Projectile.position, Projectile.width, Projectile.height, DustID.Dirt);
+
+                            }
+                        }
+                    }
+                    Projectile.ai[1] = Projectile.Center.X > Target.Item2.X + 69 ? -MathHelper.PiOver4 * 1.2f : Projectile.Center.X < Target.Item2.X - 69 ? MathHelper.PiOver4 * 1.2f : Projectile.ai[1];
+                    Projectile.velocity = Projectile.Center.DirectionTo(Target.Item2).RotatedBy(Projectile.ai[1]).SafeNormalize(Vector2.Zero) * 7;
                     Projectile.rotation = Projectile.velocity.ToRotation() + MathHelper.PiOver2;
                     break;
 
@@ -126,19 +197,6 @@ namespace MoleMod.Content
                     Projectile.rotation = 0;
                     break;
             }
-
-        }
-        public override bool OnTileCollide(Vector2 oldVelocity)
-        {
-            Projectile.velocity = oldVelocity;
-            if (oldVelocity.LengthSquared() > 1 && CurrentAnimation == Animation.Burrowing)
-            {
-                for (int i = 4; i > 0; i--)
-                {
-                    Dust.NewDust(Projectile.position, Projectile.width, Projectile.height, Terraria.ID.DustID.Dirt);
-                }
-            }
-            return false;
         }
         public override bool PreDraw(ref Color lightColor)
         {
@@ -148,18 +206,43 @@ namespace MoleMod.Content
             var rect = new Rectangle(0, startY, texture.Width, frameHeight);
             var scale = Projectile.scale * Main.GameZoomTarget;
             var color = lightColor;
-            Main.spriteBatch.Draw(texture, Projectile.Center - Main.screenPosition, rect, color, Projectile.rotation, rect.Size() / 2, scale, (SpriteEffects)Projectile.spriteDirection, 0);
+            Main.spriteBatch.Draw(texture, Projectile.Center - Main.screenPosition , rect, color, Projectile.rotation, rect.Size() / 2, scale, (SpriteEffects)Projectile.spriteDirection, 0);
 
             return false;
         }
-        public override void PostDraw(Color lightColor)
+    }
+    public class OldMiningHelmet : ModProjectile
+    {
+        public override void SetDefaults()
         {
-            var texture = Terraria.GameContent.TextureAssets.Item[ModContent.ItemType<OldMiningHat>()].Value;
-            if (CurrentAnimation == Animation.Hiding || CurrentAnimation == Animation.UnHiding)
+            Projectile.width = 30;
+            Projectile.height = 30;
+        }
+        public override void AI()
+        {
+            float rot = Projectile.ai[1] * 0.03f + 0.05999f;
+            Projectile.rotation = (Projectile.rotation + rot) % MathHelper.TwoPi;
+            Projectile.velocity.Y += 0.3f;
+        }
+        public override bool OnTileCollide(Vector2 oldVelocity)
+        {
+            switch (Projectile.rotation)
             {
-                Rotation += 0.1f;
-                Main.EntitySpriteDraw(texture, Projectile.Center - Main.screenPosition - new Vector2(0, Projectile.height / 2) * (Projectile.frame + 0.1f * Projectile.frameCounter), texture.Bounds, lightColor, Rotation, texture.Size() / 2, Projectile.scale, SpriteEffects.None);
+                case < MathHelper.PiOver2:
+                    Projectile.ai[1] = -1;
+                    break;
+                case < MathHelper.Pi:
+                    Projectile.ai[1] = 2;
+                    break;
+                case < MathHelper.PiOver2 * 3:
+                    Projectile.ai[1] = -2;
+                    break;
+                case < MathHelper.TwoPi:
+                    Projectile.ai[1] = 1;
+                    break;
             }
+            Projectile.timeLeft -= 40;
+            return false;
         }
     }
 }

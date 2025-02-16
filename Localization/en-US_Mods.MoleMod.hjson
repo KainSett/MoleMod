@@ -12,4 +12,7 @@ Items: {
 	}
 }
 
-Projectiles.MolePet.DisplayName: Mole Pet
+Projectiles: {
+	MolePet.DisplayName: Mole Pet
+	OldMiningHelmet.DisplayName: Old Mining Helmet
+}
