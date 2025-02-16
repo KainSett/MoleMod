@@ -13,8 +13,8 @@ namespace MoleMod.Content
         public override void SetDefaults()
         {
             Item.CloneDefaults(ItemID.ZephyrFish);
-            Item.width = 32;
-            Item.height = 16;
+            Item.width = 28;
+            Item.height = 22;
             Item.useStyle = ItemUseStyleID.Swing;
             Item.noMelee = true;
             Item.shoot = ModContent.ProjectileType<MolePet>();
@@ -27,6 +27,12 @@ namespace MoleMod.Content
                 player.AddBuff(Item.buffType, 3600);
             }
             return true;
+        }
+        public override bool CanShoot(Player player)
+        {
+            if (player.HasBuff(Item.buffType))
+                return false;
+            return base.CanShoot(player);
         }
         public override void AddRecipes()
         {

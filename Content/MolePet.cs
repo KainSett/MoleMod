@@ -63,7 +63,7 @@ namespace MoleMod.Content
                 return;
             }
 
-            if (Projectile.oldPos.Last().DistanceSQ(Projectile.position) > 30 * 30 || CurrentAnimation != Animation.Burrowing || Projectile.Center.DistanceSQ(owner.Center) < 1500 * 1500)
+            if (Projectile.oldPos[..(Projectile.oldPos.Length - 1)].Contains(Projectile.oldPos.Last()) || CurrentAnimation != Animation.Burrowing || Projectile.Center.DistanceSQ(owner.Center) < 1500 * 1500)
                 Projectile.timeLeft = 120;
 
 
@@ -109,7 +109,15 @@ namespace MoleMod.Content
                         break;
 
                     default:
-                        Projectile.frame = 0;
+                        if (Projectile.frame == 0 && Main.rand.NextFloat() < 0.01f)
+                        {
+                            Projectile.frame = -1;
+                        }
+                        else if (Projectile.frame == -1)
+                            Projectile.frame = -2;
+                        else
+                            Projectile.frame = 0;
+
                         Projectile.spriteDirection = 1;
                         break;
                 }
@@ -200,12 +208,31 @@ namespace MoleMod.Content
         }
         public override bool PreDraw(ref Color lightColor)
         {
-            var texture = Terraria.GameContent.TextureAssets.Projectile[Projectile.type].Value; 
+            bool alt = Main.LocalPlayer.HasBuff(BuffID.Poisoned);
+            var texture = alt ? MoleMod.MolePet_Alt.Value : Terraria.GameContent.TextureAssets.Projectile[Projectile.type].Value; 
+
+
             int frameHeight = texture.Height / Main.projFrames[Type];
+
             int startY = frameHeight * Projectile.frame;
             var rect = new Rectangle(0, startY, texture.Width, frameHeight);
+
+            if (Projectile.frame == -1)
+            {
+                texture = alt ? MoleMod.MolePetSide_Alt.Value : MoleMod.MolePetSide.Value;
+                rect = new Rectangle(0, 0, texture.Width, texture.Height / 2);
+            }
+            else if (Projectile.frame == -2)
+            {
+                texture = alt ? MoleMod.MolePetSide_Alt.Value : MoleMod.MolePetSide.Value;
+                rect = new Rectangle(0, texture.Height / 2, texture.Width, texture.Height / 2);
+            }
+
+
             var scale = Projectile.scale * Main.GameZoomTarget;
+
             var color = lightColor;
+
             Main.spriteBatch.Draw(texture, Projectile.Center - Main.screenPosition , rect, color, Projectile.rotation, rect.Size() / 2, scale, (SpriteEffects)Projectile.spriteDirection, 0);
 
             return false;
