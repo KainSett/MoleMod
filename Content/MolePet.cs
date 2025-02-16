@@ -63,7 +63,9 @@ namespace MoleMod.Content
                 return;
             }
 
-            if (Projectile.oldPos[..(Projectile.oldPos.Length - 1)].Contains(Projectile.oldPos.Last()) || CurrentAnimation != Animation.Burrowing || Projectile.Center.DistanceSQ(owner.Center) < 1500 * 1500)
+            if ((Projectile.oldPos.First().DistanceSQ(Projectile.oldPos.Last()) < 20 * 20 || Projectile.Center.DistanceSQ(owner.Center) > 1500 * 1500) && CurrentAnimation == Animation.Burrowing)
+                Projectile.timeLeft--;
+            else
                 Projectile.timeLeft = 120;
 
 
@@ -109,11 +111,20 @@ namespace MoleMod.Content
                         break;
 
                     default:
-                        if (Projectile.frame == 0 && Main.rand.NextFloat() < 0.01f)
+                        if (Projectile.frame == 0 && Main.rand.NextFloat() < 0.03f)
                         {
-                            Projectile.frame = -1;
+                            if (Main.rand.NextFloat() < 0.3f)
+                                Projectile.frame = -1;
+                            else if (Main.rand.NextBool())
+                                Projectile.frame = -3;
+                            else
+                                Projectile.frame = -4;
                         }
                         else if (Projectile.frame == -1)
+                            Projectile.frame = -2;
+                        else if (Projectile.frame == -3)
+                            Projectile.frame = -1;
+                        else if (Projectile.frame == -4)
                             Projectile.frame = -2;
                         else
                             Projectile.frame = 0;
@@ -208,8 +219,7 @@ namespace MoleMod.Content
         }
         public override bool PreDraw(ref Color lightColor)
         {
-            bool alt = Main.LocalPlayer.HasBuff(BuffID.Poisoned);
-            var texture = alt ? MoleMod.MolePet_Alt.Value : Terraria.GameContent.TextureAssets.Projectile[Projectile.type].Value; 
+            var texture = Terraria.GameContent.TextureAssets.Projectile[Projectile.type].Value; 
 
 
             int frameHeight = texture.Height / Main.projFrames[Type];
@@ -217,23 +227,19 @@ namespace MoleMod.Content
             int startY = frameHeight * Projectile.frame;
             var rect = new Rectangle(0, startY, texture.Width, frameHeight);
 
-            if (Projectile.frame == -1)
+            if (Projectile.frame <= -1)
             {
-                texture = alt ? MoleMod.MolePetSide_Alt.Value : MoleMod.MolePetSide.Value;
-                rect = new Rectangle(0, 0, texture.Width, texture.Height / 2);
+                texture = MoleMod.MolePetSide.Value;
+                rect = new Rectangle(0, texture.Height / 4 * (int.Abs(Projectile.frame) - 1), texture.Width, texture.Height / 4);
             }
-            else if (Projectile.frame == -2)
-            {
-                texture = alt ? MoleMod.MolePetSide_Alt.Value : MoleMod.MolePetSide.Value;
-                rect = new Rectangle(0, texture.Height / 2, texture.Width, texture.Height / 2);
-            }
+            
 
 
             var scale = Projectile.scale * Main.GameZoomTarget;
 
             var color = lightColor;
 
-            Main.spriteBatch.Draw(texture, Projectile.Center - Main.screenPosition , rect, color, Projectile.rotation, rect.Size() / 2, scale, (SpriteEffects)Projectile.spriteDirection, 0);
+            Main.spriteBatch.Draw(texture, Projectile.Center - Main.screenPosition + Vector2.UnitY * 5, rect, color, Projectile.rotation, rect.Size() / 2, scale, (SpriteEffects)Projectile.spriteDirection, 0);
 
             return false;
         }
