@@ -76,21 +76,19 @@ namespace MoleMod.Content
 
                     case Animation.Burrowing:
                         if (Projectile.frame == 7)
-                            Projectile.ai[1] = 1;
+                            Projectile.spriteDirection = 1;
 
                         else if (Projectile.frame == 3)
-                            Projectile.ai[1] = 0;
-
-
-                        if (Projectile.ai[1] == 0) {
-                            Projectile.frame++;
-                            Projectile.spriteDirection = 1;
-                        }
-
-                        else {
-                            Projectile.frame--;
                             Projectile.spriteDirection = -1;
-                        }
+
+
+                        if (Projectile.spriteDirection != 1) 
+                            Projectile.frame++;
+                            
+                        
+
+                        else Projectile.frame--;
+                        
 
                         break;
 
@@ -99,18 +97,12 @@ namespace MoleMod.Content
             }
 
             var top = Projectile.Center - new Vector2(0, Projectile.height / 2);
-            var bottom = Projectile.Center + new Vector2(0, Projectile.height / 2);
+            var bottom = Projectile.Center + new Vector2(0, Projectile.height / 1.8f);
 
-            if (WorldGen.SolidOrSlopedTile(top.ToTileCoordinates().X, top.ToTileCoordinates().Y))
+            if (WorldGen.SolidOrSlopedTile(top.ToTileCoordinates().X, top.ToTileCoordinates().Y) || !Main.tile[bottom.ToTileCoordinates()].HasTile)
                 CurrentAnimation = Animation.Burrowing;
 
-            else if (Main.tile[bottom.ToTileCoordinates()].HasTile)
-            {
-                if (CurrentAnimation != Animation.Stationary && Projectile.frame >= 2)
-                    CurrentAnimation = Animation.Burrowing;
-
-                else CurrentAnimation = Animation.Hiding;
-            }
+            
 
             else if (Projectile.Center.DistanceSQ(owner.Center) < 300 * 300 && CurrentAnimation == Animation.Burrowing)
                 CurrentAnimation = Animation.UnHiding;
