@@ -15,11 +15,13 @@ namespace MoleMod
 	public class MoleMod : Mod
 	{
         public static Asset<Texture2D> MolePetSide;
+        public static Asset<Texture2D> MoleCritter_Alt;
         public override void Load()
         {
             if (Main.netMode != NetmodeID.Server)
             {
                 MolePetSide = ModContent.Request<Texture2D>("MoleMod/Content/MolePetSide");
+                MoleCritter_Alt = ModContent.Request<Texture2D>("MoleMod/Content/MoleCritter_Alt");
             }
         }
         public override void Unload()
@@ -27,6 +29,7 @@ namespace MoleMod
             if (Main.netMode != NetmodeID.Server)
             {
                 MolePetSide.Dispose();
+                MoleCritter_Alt.Dispose();
             }
         }
     }

@@ -46,11 +46,6 @@ namespace MoleMod.Content
             get => (Animation)Projectile.ai[0];
             set => Projectile.ai[0] = (float)value;
         }
-        public float Rotation
-        {
-            get => Projectile.ai[2];
-            set => Projectile.ai[2] = value;
-        }
         public (bool, Vector2) Target;
         public override void AI()
         {
@@ -70,7 +65,8 @@ namespace MoleMod.Content
 
 
             Projectile.frameCounter++;
-            if (Projectile.frameCounter > 5)
+            int frameTime = Projectile.frame >= -2 ? 5 : 30;
+            if (Projectile.frameCounter > frameTime)
             {
                 Projectile.frameCounter = 0;
                 switch (CurrentAnimation)
