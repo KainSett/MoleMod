@@ -28,8 +28,8 @@ namespace MoleMod
         {
             if (Main.netMode != NetmodeID.Server)
             {
-                MolePetSide.Dispose();
-                MoleCritter_Alt.Dispose();
+                MolePetSide = null;
+                MoleCritter_Alt = null;
             }
         }
     }

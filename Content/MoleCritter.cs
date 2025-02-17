@@ -1,30 +1,46 @@
-using Terraria.GameContent.Bestiary;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using MonoMod.Cil;
+using System;
 using Terraria;
+using Terraria.Audio;
+using Terraria.GameContent.Bestiary;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.ModLoader.Utilities;
-using System;
-using Microsoft.Xna.Framework;
-using Terraria.Utilities;
-using Microsoft.Xna.Framework.Graphics;
 
 namespace MoleMod.Content
 {
+    /// <summary>
+    /// This file shows off a critter npc. The unique thing about critters is how you can catch them with a bug net.
+    /// The important bits are: Main.npcCatchable, NPC.catchItem, and Item.makeNPC.
+    /// We will also show off adding an item to an existing RecipeGroup (see ExampleRecipes.AddRecipeGroups).
+    /// Additionally, this example shows an involved IL edit.
+    /// </summary>
     public class MoleCritter : ModNPC
     {
+        private const int ClonedNPCID = NPCID.Frog; // Easy to change type for your modder convenience
+
         public override void SetStaticDefaults()
         {
-            Main.npcFrameCount[Type] = 6;
-            Main.npcCatchable[Type] = true;
+            Main.npcFrameCount[Type] = Main.npcFrameCount[ClonedNPCID]; // Copy animation frames
+            Main.npcCatchable[Type] = true; // This is for certain release situations
+
+            // These three are typical critter values
             NPCID.Sets.CountsAsCritter[Type] = true;
             NPCID.Sets.TakesDamageFromHostilesWithoutBeingFriendly[Type] = true;
             NPCID.Sets.TownCritter[Type] = true;
-            NPCID.Sets.NormalGoldCritterBestiaryPriority.Insert(NPCID.Sets.NormalGoldCritterBestiaryPriority.IndexOf(NPCID.Mouse), Type);
+
+            // The frog is immune to confused
+            NPCID.Sets.SpecificDebuffImmunity[Type][BuffID.Confused] = true;
+
+            // This is so it appears between the frog and the gold frog
+            NPCID.Sets.NormalGoldCritterBestiaryPriority.Insert(NPCID.Sets.NormalGoldCritterBestiaryPriority.IndexOf(ClonedNPCID) + 1, Type);
         }
+
         public override void SetDefaults()
         {
-            NPC.CloneDefaults(NPCID.Mouse);
-            AnimationType = NPCID.Mouse;
+            NPC.noTileCollide = true;
             NPC.width = 30;
             NPC.height = 20;
             NPC.damage = 0;
@@ -34,42 +50,6 @@ namespace MoleMod.Content
             NPC.DeathSound = SoundID.NPCDeath1;
             NPC.catchItem = ModContent.ItemType<MoleCritterItem>();
             NPC.lavaImmune = true;
-            var distance = 2000f * 2000f;
-            foreach (var gamer in Main.ActivePlayers)
-            {
-                if (gamer != null && gamer.Center.DistanceSQ(NPC.Center) < distance)
-                {
-                    distance = gamer.Center.DistanceSQ(NPC.Center);
-                    Target = gamer.Center;
-                }
-            }
-            if (Target == Vector2.Zero)
-            {
-                Target = Main.screenPosition + new Vector2 (-Main.screenWidth, 2 * Main.screenHeight);
-            }
-            else
-            {
-                for (int i = 150; i < 400; i++)
-                {
-                    for (int a = 150; a < 400; a++)
-                    {
-                        var block = Target.ToTileCoordinates();
-
-                        for (int x = 1; x == 1; x = -1)
-                        {
-                            for (int y = 1; y == 1; y = -1)
-                            {
-                                block += new Point(a * x, i * y);
-                                if (WorldGen.SolidOrSlopedTile(block.X, block.Y) && !WorldGen.SolidOrSlopedTile(block.X, block.Y - 1))
-                                {
-                                    Target = block.ToWorldCoordinates();
-                                    return;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
         }
         public enum State
         {
@@ -89,6 +69,45 @@ namespace MoleMod.Content
         }
         public override void AI()
         {
+            if (Target == Vector2.Zero)
+            {
+                var distance = 2000f * 2000f;
+                foreach (var gamer in Main.ActivePlayers)
+                {
+                    if (gamer != null && gamer.Center.DistanceSQ(NPC.Center) < distance)
+                    {
+                        distance = gamer.Center.DistanceSQ(NPC.Center);
+                        Target = gamer.Center;
+                    }
+                }
+                if (Target == Vector2.Zero)
+                {
+                    Target = Main.screenPosition + new Vector2(Main.screenWidth, Main.screenHeight);
+                }
+                else
+                {
+                    for (int i = 150; i < 400; i++)
+                    {
+                        for (int a = 150; a < 400; a++)
+                        {
+                            var block = Target.ToTileCoordinates();
+
+                            for (int x = 1; x == 1; x = -1)
+                            {
+                                for (int y = 1; y == 1; y = -1)
+                                {
+                                    block += new Point(a * x, i * y);
+                                    if (WorldGen.SolidOrSlopedTile(block.X, block.Y) && !WorldGen.SolidOrSlopedTile(block.X, block.Y - 1))
+                                    {
+                                        Target = block.ToWorldCoordinates();
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             if (state == State.Stationary)
             {
                 foreach (var threat in Main.ActiveProjectiles)
@@ -133,7 +152,7 @@ namespace MoleMod.Content
                     if (NPC.Center.DistanceSQ(Target) < 100 * 100)
                         NPC.despawnEncouraged = true;
 
-                    
+
                     break;
             }
         }
@@ -207,6 +226,19 @@ namespace MoleMod.Content
             }
             base.FindFrame(frameHeight);
         }
+
+        public override void SetBestiary(BestiaryDatabase database, BestiaryEntry bestiaryEntry)
+        {
+            bestiaryEntry.AddTags(BestiaryDatabaseNPCsPopulator.CommonTags.SpawnConditions.Biomes.Underground,
+                BestiaryDatabaseNPCsPopulator.CommonTags.SpawnConditions.Biomes.Surface,
+                new FlavorTextBestiaryInfoElement("Mole thing"));
+        }
+
+        public override float SpawnChance(NPCSpawnInfo spawnInfo)
+        {
+            return Math.Max(SpawnCondition.Underground.Chance * 0.1f, SpawnCondition.Overworld.Chance * 0.1f);
+        }
+
         public override bool PreDraw(SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor)
         {
             var texture = Terraria.GameContent.TextureAssets.Npc[NPC.type].Value;
@@ -217,22 +249,10 @@ namespace MoleMod.Content
 
             var scale = NPC.scale * Main.GameZoomTarget;
 
-            spriteBatch.Draw(texture, NPC.Center - Main.screenPosition + Vector2.UnitY * 5, NPC.frame, drawColor, NPC.rotation, NPC.frame.Size() / 2, scale, SpriteEffects.None, 0);
+            spriteBatch.Draw(texture, NPC.Center - screenPos + Vector2.UnitY * 5, NPC.frame, drawColor, NPC.rotation, NPC.frame.Size() / 2, scale, SpriteEffects.None, 0);
 
             return false;
         }
-        public override void SetBestiary(BestiaryDatabase database, BestiaryEntry bestiaryEntry)
-        {
-            bestiaryEntry.AddTags(BestiaryDatabaseNPCsPopulator.CommonTags.SpawnConditions.Biomes.Underground,
-                BestiaryDatabaseNPCsPopulator.CommonTags.SpawnConditions.Biomes.Surface,
-                new FlavorTextBestiaryInfoElement("Mole creature"));
-        }
-
-        public override float SpawnChance(NPCSpawnInfo spawnInfo)
-        {
-            return Math.Max(SpawnCondition.Underworld.Chance * 0.1f, SpawnCondition.Overworld.Chance * 0.1f);
-        }
-
         public override void HitEffect(NPC.HitInfo hit)
         {
             if (NPC.life <= 0)
@@ -252,8 +272,9 @@ namespace MoleMod.Content
                 }
                 Gore.NewGore(NPC.GetSource_Death(), NPC.position, NPC.velocity, GoreID.Rat1, NPC.scale);
                 Gore.NewGore(NPC.GetSource_Death(), NPC.position, NPC.velocity, GoreID.Rat2, NPC.scale);
-                Gore.NewGore(NPC.GetSource_Death(), NPC.position, NPC.velocity, GoreID.Rat3, NPC.scale);
             }
         }
+
     }
+
 }

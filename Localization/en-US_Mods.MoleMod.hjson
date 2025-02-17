@@ -10,9 +10,16 @@ Items: {
 		DisplayName: Old Mining Hat
 		Tooltip: ""
 	}
+
+	MoleCritterItem: {
+		DisplayName: Mole Critter Item
+		Tooltip: ""
+	}
 }
 
 Projectiles: {
 	MolePet.DisplayName: Mole Pet
 	OldMiningHelmet.DisplayName: Old Mining Helmet
 }
+
+NPCs.MoleCritter.DisplayName: Mole thing
