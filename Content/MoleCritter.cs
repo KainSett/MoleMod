@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using MonoMod.Cil;
+using ReLogic.Content;
 using System;
 using Terraria;
 using Terraria.Audio;
@@ -52,10 +53,11 @@ namespace MoleMod.Content
             NPC.lavaImmune = true;
         }
         public enum State
-        {
-            Default,
+        { 
+            Burrowing,
+            Unhiding,
             Stationary,
-            Scared
+            Hiding
         }
         public State state
         {
@@ -69,158 +71,169 @@ namespace MoleMod.Content
         }
         public override void AI()
         {
-            if (Target == Vector2.Zero)
+            if (!NPC.HasBuff(BuffID.Darkness))
+                NPC.AddBuff(BuffID.Darkness, 601);
+
+            if (NPC.buffTime[NPC.FindBuffIndex(BuffID.Darkness)] >= 600)
             {
-                var distance = 2000f * 2000f;
+                var distance = 1000f * 1000f;
                 foreach (var gamer in Main.ActivePlayers)
                 {
                     if (gamer != null && gamer.Center.DistanceSQ(NPC.Center) < distance)
                     {
                         distance = gamer.Center.DistanceSQ(NPC.Center);
-                        Target = gamer.Center;
-                    }
-                }
-                if (Target == Vector2.Zero)
-                {
-                    Target = Main.screenPosition + new Vector2(Main.screenWidth, Main.screenHeight);
-                }
-                else
-                {
-                    for (int i = 150; i < 400; i++)
-                    {
-                        for (int a = 150; a < 400; a++)
-                        {
-                            var block = Target.ToTileCoordinates();
 
-                            for (int x = 1; x == 1; x = -1)
+                        for (int y = 200; y < -200; y--)
+                        {
+                            for (int x = 100; x < 500; x++)
                             {
-                                for (int y = 1; y == 1; y = -1)
+                                var block = gamer.Center.ToTileCoordinates() + new Point(x, y);
+                                if (WorldGen.SolidOrSlopedTile(block.X, block.Y) && !WorldGen.SolidOrSlopedTile(block.X, block.Y - 1))
                                 {
-                                    block += new Point(a * x, i * y);
-                                    if (WorldGen.SolidOrSlopedTile(block.X, block.Y) && !WorldGen.SolidOrSlopedTile(block.X, block.Y - 1))
-                                    {
-                                        Target = block.ToWorldCoordinates();
-                                        return;
-                                    }
+                                    Target = block.ToWorldCoordinates();
+                                    return;
                                 }
                             }
                         }
                     }
                 }
             }
-            if (state == State.Stationary)
+            else if (Target.Y < 300)
             {
-                foreach (var threat in Main.ActiveProjectiles)
+                NPC.buffImmune[BuffID.Darkness] = true;
+            }
+
+            if (!NPC.HasBuff(BuffID.Darkness))
+            {
+                NPC.active = false;
+                NPC.life = 0;
+            }
+            else if (state != State.Burrowing)
+            {
+                NPC.buffTime[NPC.FindBuffIndex(BuffID.Darkness)]++;
+
+                if (state == State.Stationary && NPC.frameCounter > 5)
                 {
-                    if (threat != null && threat.damage > 0 && threat.Center.DistanceSQ(NPC.Center) < 100 * 100)
+                    bool scared = false;
+
+
+                    foreach (var threat in Main.ActiveNPCs)
                     {
-                        Target += new Vector2(0, 2000).RotatedBy(Main.rand.NextFloat() * MathHelper.Pi - MathHelper.PiOver2);
-                        state = State.Scared; break;
+                        if (threat != null && threat.damage > 0 && threat.Center.DistanceSQ(NPC.Center) < 100 * 100)
+                        {
+                            scared = true;
+                            break;
+                        }
                     }
-                }
-                foreach (var threat in Main.ActiveNPCs)
-                {
-                    if (threat != null && threat.damage > 0 && threat.Center.DistanceSQ(NPC.Center) < 100 * 100)
+
+                    if (!scared)
                     {
-                        Target += new Vector2(0, 2000).RotatedBy(Main.rand.NextFloat() * MathHelper.Pi - MathHelper.PiOver2);
-                        state = State.Scared; break;
+                        foreach (var threat in Main.ActiveProjectiles)
+                        {
+                            if (threat != null && threat.damage > 0 && threat.Center.DistanceSQ(NPC.Center) < 100 * 100)
+                            {
+                                scared = true;
+                                break;
+                            }
+                        }
                     }
-                }
-                foreach (var threat in Main.ActivePlayers)
-                {
-                    if (threat != null && threat.Center.DistanceSQ(NPC.Center) < 100 * 100)
+
+                    if (!scared)
                     {
-                        Target += new Vector2(0, 2000).RotatedBy(Main.rand.NextFloat() * MathHelper.Pi - MathHelper.PiOver2);
-                        state = State.Scared; break;
+                        foreach (var threat in Main.ActivePlayers)
+                        {
+                            if (threat != null && threat.Center.DistanceSQ(NPC.Center) < 100 * 100)
+                            {
+                                scared = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (scared)
+                    {
+                        state = State.Hiding;
+                        Target += Vector2.UnitY.RotatedBy(Main.rand.NextFloat(-MathHelper.PiOver4, MathHelper.PiOver4)) * 400;
+                        NPC.buffTime[BuffID.Darkness] = 100;
                     }
                 }
             }
 
-            switch (state)
+            else if (NPC.Center.DistanceSQ(Target) > NPC.Size.LengthSquared() + 16 * 16)
             {
-                case State.Default:
-                    Burrow();
-                    break;
+                NPC.velocity = NPC.Center.DirectionTo(Target);
+                NPC.velocity.Y *= 1.12f;
 
-                case State.Stationary:
-                    NPC.frameCounter++;
+                for (int y = NPC.height / 8; y > 0; y--)
+                {
+                    for (int x = NPC.width / 8; x > 0; x--)
+                    {
+                        var block = (NPC.position).ToTileCoordinates() + new Point(x, y);
 
-                    break;
-
-                case State.Scared:
-                    NPC.frameCounter++;
-                    if (NPC.Center.DistanceSQ(Target) < 100 * 100)
-                        NPC.despawnEncouraged = true;
-
-
-                    break;
+                        if (WorldGen.SolidOrSlopedTile(block.X, block.Y))
+                            Dust.NewDust(NPC.position, NPC.width, NPC.height, DustID.Dirt);
+                    }
+                }
             }
+            else
+            {
+                state = State.Unhiding;
+            }
+
+            NPC.rotation = NPC.velocity.SafeNormalize(-Vector2.UnitX).ToRotation() + MathHelper.PiOver2;
         }
-        public void Burrow()
-        {
-            var underground = NPC.Center.DistanceSQ(Target) < 10 * 10;
-            if (underground)
-            {
-                NPC.velocity *= 0;
-                NPC.frameCounter++;
-                return;
-            }
-
-            for (int y = NPC.height / 8; y > 0; y--)
-            {
-                for (int x = NPC.width / 8; x > 0; x--)
-                {
-                    var block = (NPC.position).ToTileCoordinates() + new Point(x, y);
-                    if (WorldGen.SolidOrSlopedTile(block.X, block.Y))
-                    {
-                        Dust.NewDust(NPC.position, NPC.width, NPC.height, DustID.Dirt);
-                        underground = true;
-                    }
-                }
-            }
-
-            if (!underground)
-            {
-                NPC.despawnEncouraged = true;
-                NPC.velocity *= 1.1f;
-            }
-
-            NPC.ai[1] = NPC.Center.X > Target.X + 99 ? -MathHelper.PiOver4 * 1.3f : NPC.Center.X < Target.X - 99 ? MathHelper.PiOver4 * 1.3f : NPC.ai[1];
-            NPC.velocity = NPC.Center.DirectionTo(Target).RotatedBy(NPC.ai[1]).SafeNormalize(Vector2.Zero) * 9;
-            NPC.rotation = NPC.velocity.ToRotation() + MathHelper.PiOver2;
-        }
+        public Asset<Texture2D> texture;
         public override void FindFrame(int frameHeight)
         {
+            texture ??= Terraria.GameContent.TextureAssets.Npc[NPC.type];
+
+            NPC.frame = new Rectangle(0, NPC.frame.Y, texture.Value.Width, texture.Value.Height / 6);
             switch (state)
             {
-                case State.Stationary:
-                    if (NPC.frameCounter > 7)
-                    {
-                        NPC.frameCounter = 0;
-                        int num = Main.rand.NextFloat() < 0.02f && NPC.frame.Y != 4 * frameHeight ? 5 : 0;
-                        NPC.frame.Y = NPC.frame.Y != 5 * frameHeight ? num * frameHeight : NPC.frame.Y - frameHeight;
-                    }
+                case State.Burrowing:
+                    NPC.frame.Y = frameHeight * 3;
                     break;
 
-                case State.Default:
+                case State.Unhiding:
+                    NPC.frameCounter++;
+
                     if (NPC.frameCounter > 6)
                     {
                         NPC.frameCounter = 0;
-                        if (NPC.frame.Y <= 0)
+                        NPC.frame.Y -= frameHeight;
+
+                        if (NPC.frame.Y == 0)
                             state = State.Stationary;
-                        else
-                            NPC.frame.Y -= frameHeight;
                     }
                     break;
 
-                case State.Scared:
+                case State.Stationary:
+                    NPC.frameCounter++;
+
+                    if (NPC.frameCounter > 6) {
+
+                        NPC.frameCounter = 0;
+                        if (NPC.frame.Y == 0 && Main.rand.NextFloat() < 0.03f)
+                            NPC.frame.Y = 5 * frameHeight;
+
+                        else if (NPC.frame.Y == 5 * frameHeight)
+                            NPC.frame.Y -= frameHeight;
+
+                        else
+                            NPC.frame.Y = 0; 
+                    }
+                    break;
+                
+                case State.Hiding:
+                    NPC.frameCounter++;
+
                     if (NPC.frameCounter > 6)
                     {
                         NPC.frameCounter = 0;
-                        if (NPC.frame.Y < 3 * frameHeight)
-                            NPC.frame.Y += frameHeight;
-                        else
-                            state = State.Default;
+                        NPC.frame.Y += frameHeight;
+
+                        if (NPC.frame.Y >= frameHeight * 3)
+                            state = State.Burrowing;
                     }
                     break;
             }
@@ -241,15 +254,15 @@ namespace MoleMod.Content
 
         public override bool PreDraw(SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor)
         {
-            var texture = Terraria.GameContent.TextureAssets.Npc[NPC.type].Value;
-
+            texture ??= Terraria.GameContent.TextureAssets.Npc[NPC.type];
+            texture = Terraria.GameContent.TextureAssets.Npc[NPC.type];
 
             if (Main.LocalPlayer.HasBuff(BuffID.WeaponImbueGold))
-                texture = MoleMod.MoleCritter_Alt.Value;
+                texture = MoleMod.MoleCritter_Alt;
 
             var scale = NPC.scale * Main.GameZoomTarget;
 
-            spriteBatch.Draw(texture, NPC.Center - screenPos + Vector2.UnitY * 5, NPC.frame, drawColor, NPC.rotation, NPC.frame.Size() / 2, scale, SpriteEffects.None, 0);
+            spriteBatch.Draw(texture.Value, NPC.Center - screenPos + Vector2.UnitY * 5, NPC.frame, drawColor, NPC.rotation, NPC.frame.Size() / 2, scale, SpriteEffects.None, 0);
 
             return false;
         }
