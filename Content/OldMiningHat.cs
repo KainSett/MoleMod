@@ -34,13 +34,6 @@ namespace MoleMod.Content
                 return false;
             return base.CanShoot(player);
         }
-        public override void AddRecipes()
-        {
-            CreateRecipe()
-                .AddIngredient(ItemID.MiningHelmet)
-                .AddCondition(Condition.NearShimmer)
-                .Register();
-        }
     }
     public class MoleDropNPC : GlobalNPC
     {
@@ -48,9 +41,42 @@ namespace MoleMod.Content
         {
             if (npc.type == NPCID.UndeadMiner)
             {
-                npcLoot.Add(ItemDropRule.Common(ModContent.ItemType<OldMiningHat>(), 5));
+                npcLoot.Add(ItemDropRule.Common(ModContent.ItemType<OldMiningHat>(), 11));
             }
             base.ModifyNPCLoot(npc, npcLoot);
+        }
+    }
+    public class OldMiningHatChestLoot : ModSystem
+    {
+        public override void PostWorldGen()
+        {
+            int items = 11;
+            for (int chestIndex = 0; chestIndex < Main.maxChests; chestIndex++)
+            {
+                Chest chest = Main.chest[chestIndex];
+                if (chest == null)
+                {
+                    continue;
+                }
+                Tile chestTile = Main.tile[chest.x, chest.y];
+                if (chestTile.TileType == TileID.Containers && chestTile.TileFrameX == 1 * 36)
+                {
+                    if (WorldGen.genRand.NextFloat() > 0.03f)
+                        continue;
+                    for (int inventoryIndex = 0; inventoryIndex < Chest.maxItems; inventoryIndex++)
+                    {
+                        if (chest.item[inventoryIndex].type == ItemID.None)
+                        {
+                            // Place the item
+                            chest.item[inventoryIndex].SetDefaults(ModContent.ItemType<OldMiningHat>());
+                            items--;
+                            break;
+                        }
+                    }
+                }
+                if (items <= 0)
+                    break;
+            }
         }
     }
 }
