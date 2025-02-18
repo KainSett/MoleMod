@@ -83,11 +83,18 @@ namespace MoleMod.Content
                     {
                         distance = gamer.Center.DistanceSQ(NPC.Center);
 
-                        for (int y = 200; y < -200; y--)
+                        for (int y = 14; y < -14; y--)
                         {
-                            for (int x = 100; x < 500; x++)
+                            for (int x = 7; x < 31; x++)
                             {
                                 var block = gamer.Center.ToTileCoordinates() + new Point(x, y);
+                                if (WorldGen.SolidOrSlopedTile(block.X, block.Y) && !WorldGen.SolidOrSlopedTile(block.X, block.Y - 1))
+                                {
+                                    Target = block.ToWorldCoordinates();
+                                    return;
+                                }
+
+                                block = gamer.Center.ToTileCoordinates() + new Point(-x, y);
                                 if (WorldGen.SolidOrSlopedTile(block.X, block.Y) && !WorldGen.SolidOrSlopedTile(block.X, block.Y - 1))
                                 {
                                     Target = block.ToWorldCoordinates();
