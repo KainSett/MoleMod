@@ -1,23 +1,37 @@
 Buffs: {
 	MolePetBuff: {
-		DisplayName: Mole Pet Buff
-		Description: Mods.MoleMod.Buffs.MolePetBuff.Description
+		DisplayName: Mole Pet
+		Description: A friendly mole is helping you on your underground adventures
 	}
 }
 
 Items: {
 	OldMiningHat: {
 		DisplayName: Old Mining Hat
-		Tooltip: ""
+		Tooltip:
+			'''
+			Old mining hat with scratches on it
+			Can be used to summon its original owner
+			'''
 	}
 
 	MoleCritterItem: {
-		DisplayName: Mole Critter Item
+		DisplayName: Small mole
 		Tooltip: ""
 	}
 
 	GoldenMoleCritterItem: {
-		DisplayName: Golden Mole Critter Item
+		DisplayName: Golden small mole
+		Tooltip: ""
+	}
+
+	GoldenMoleCageItem: {
+		DisplayName: Golden small mole Cage
+		Tooltip: ""
+	}
+
+	MoleCageItem: {
+		DisplayName: Small mole Cage
 		Tooltip: ""
 	}
 }
@@ -28,6 +42,13 @@ Projectiles: {
 }
 
 NPCs: {
-	MoleCritter.DisplayName: Mole thing
-	GoldenMoleCritter.DisplayName: Golden mole thing
+	MoleCritter: {
+		DisplayName: Small mole
+		Bestiary: A little creature that spends most of it�s day digging tunnels underground. Harmless, but cautious, running away at any sight of danger
+	}
+
+	GoldenMoleCritter: {
+		DisplayName: Golden small mole
+		Bestiary: A little creature that spends most of it�s day digging tunnels underground. Harmless, but cautious, running away at any sight of danger. It's golden, somehow
+	}
 }
